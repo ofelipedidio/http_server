@@ -6,5 +6,4 @@ typedef enum {
     true = 1,
 } bool_t;
 
-
 #endif
