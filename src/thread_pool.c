@@ -1,7 +1,9 @@
 // Stdlib
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 // Extra
 #include <semaphore.h>
@@ -10,7 +12,6 @@
 #include "../include/bool.h"
 #include "../include/thread_pool.h"
 
-#define THREAD_COUNT 10
 
 pthread_t      threads[THREAD_COUNT];
 size_t         thread_ids[THREAD_COUNT];
@@ -85,11 +86,16 @@ void *thread_function(void *arg) {
         sem_post(&global_mutex);
 
         // Process
+        fprintf(stdout, "[thread %zu] processing\n", i);
         {
-            fprintf(stdout, "[thread %zu] processing (%d)\n", i, thread_input[i].num);
-            sleep((random() % 10) + 5);
-            fprintf(stdout, "[thread %zu] done\n", i);
+            thread_input_t input = thread_input[i];
+
+            uint8_t buf[] = "HTTP/1.1 200 Success\r\nContent-Length: 14\r\n\r\nHello, world!\n";
+            write(input.sockfd, buf, 58);
+
+            close(input.sockfd);
         }
+        fprintf(stdout, "[thread %zu] done\n", i);
 
         // End
         sem_wait(&global_mutex);
