@@ -1,3 +1,6 @@
+#ifndef THREAD_POOL
+#define THREAD_POOL
+
 #include <netinet/in.h>
 
 #define THREAD_COUNT 10
@@ -15,3 +18,5 @@ void allocate_to_thread(thread_input_t input);
 void *thread_function(void *arg);
 
 void close_thread_pool();
+
+#endif
