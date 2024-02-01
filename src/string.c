@@ -64,10 +64,22 @@ string_t string_new_with_capacity(size_t initial_capacity) {
  */
 string_t str_cstr(char *str) {
     string_t string;
-    // TODO: do this right
+    // TODO: is strdup the right function to call? I think I want called and not malloc here
     string.text = strdup(str);
     string.length = strlen(string.text);
     string.capacity = string.length;
+    return string;
+}
+
+/*
+ * Converts a char string to a string_t
+ */
+string_t str_char(char c) {
+    string_t string;
+    string.text = calloc(1, sizeof(char));
+    string.text[0] = c;
+    string.length = 1;
+    string.capacity = 1;
     return string;
 }
 
@@ -136,11 +148,37 @@ string_t *str_push(string_t *destination, string_t source) {
 }
 
 /*
+ * Appends a string_t (source) into another string_t (destination).
+ * Also frees the appended string_t.
+ */
+string_t *str_pushf(string_t *destination, string_t source) {
+    string_t *res = str_push(destination, source);
+    str_free(source);
+    return res;
+}
+
+/*
  * Prints the {string} to {stream}
  */
 void str_print(string_t string, FILE *stream) {
     for (size_t i = 0; i < string.length; i++) {
         putc(string.text[i], stream);
     }
+}
+
+/*
+ * Prints the {string} to {stream}.
+ * Also frees the printed string_t.
+ */
+void str_printf(string_t string, FILE *stream) {
+    str_print(string, stream);
+    str_free(string);
+}
+
+/*
+ * Frees the allocated memory from a string_t
+ */
+void str_free(string_t string) {
+    free(string.text);
 }
 
