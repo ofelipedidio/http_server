@@ -1,10 +1,9 @@
 CC := gcc
-CFLAGS := 
+CFLAGS := -fsanitize=leak,address -g
 SRCDIR := src
 BUILDDIR := build
 BINDIR := bin
 TARGET := $(BINDIR)/program
-
 SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
@@ -12,7 +11,7 @@ DEPS := $(OBJECTS:.o=.d)
 
 $(TARGET): $(OBJECTS)
 	@mkdir -p $(BINDIR)
-	$(CC) $^ -o $(TARGET)
+	$(CC) $(CFLAGS) $^ -o $(TARGET)
 
 -include $(DEPS)
 
