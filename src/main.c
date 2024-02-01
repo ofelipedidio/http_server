@@ -12,6 +12,10 @@ void sigint_handler(int val) {
     exit(1);
 }
 
+void handle_input(size_t thread_number, thread_input_t input) {
+    fprintf(stderr, "Received request from %hu\n", ntohs(input.connection.client.sin_port));
+}
+
 int main(int argc, char **argv) {
     signal(SIGINT, sigint_handler);
 
