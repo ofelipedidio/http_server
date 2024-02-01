@@ -23,5 +23,9 @@ clean:
 	@echo "Cleaning...";
 	rm -rf $(BUILDDIR) $(BINDIR)
 
-.PHONY: clean
+run: bin/program
+	@echo "\033[34m./bin/program\033[0m"
+	@./bin/program
+
+.PHONY: clean run
 
