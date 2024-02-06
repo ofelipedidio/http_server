@@ -3,7 +3,7 @@
 
 #include "../include/server.h"
 
-#define THREAD_COUNT 10
+#define THREAD_COUNT 1
 
 /*
  * Thread payload
