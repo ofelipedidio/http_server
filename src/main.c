@@ -92,7 +92,10 @@ void print_char(FILE *stream, char c) {
 }
 
 void handle_input(size_t thread_number, thread_input_t input) {
-    fprintf(stderr, "Received request from %hu\n", ntohs(input.connection.client.sin_port));
+    // fprintf(stderr, "Received request from %hu\n", ntohs(input.connection.client.sin_port));
+    str_printf(str_cstr("Received a request from "), stderr);
+    str_printf(str_uint(ntohs(input.connection.client.sin_port), 10), stderr);
+    str_printf(str_char('\n'), stderr);
     handle_connection(&input.connection);
 }
 
