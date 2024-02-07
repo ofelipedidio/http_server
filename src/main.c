@@ -16,12 +16,11 @@ void sigint_handler(int val) {
     exit(1);
 }
 
-void *start_http_server() {
+void *start_http_server(uint16_t port) {
     int listen_sockfd;
     int connection_sockfd;
     socklen_t client_length;
     struct sockaddr_in client_address;
-    uint16_t port = 8080;
     connection_t connection;
 
     if (!start_server(port, 15, &listen_sockfd)) {
@@ -98,10 +97,15 @@ void handle_input(size_t thread_number, thread_input_t input) {
 }
 
 int main(int argc, char **argv) {
+    uint16_t port = 8080;
+    if (argc >= 2) {
+        port = (uint16_t) atoi(argv[1]);
+    }
+
     if (true) {
         signal(SIGINT, sigint_handler);
         init_thread_pool();
-        start_http_server();
+        start_http_server(port);
         close_thread_pool();
     }
 

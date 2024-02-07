@@ -19,6 +19,4 @@ typedef struct {
  */
 bool_t start_server( uint16_t in_port, int in_listen_count, int *out_listen_sockfd);
 
-void *start_http_server();
-
 #endif

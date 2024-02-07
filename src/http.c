@@ -1,13 +1,17 @@
+// TODO: free all the allocated resources, it's a mess on purpose, but it needs to be fixed before release
+
 #include "../include/http.h"
 
 #include <asm-generic/errno-base.h>
 #include <asm-generic/errno.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "../include/string.h"
+#include "../include/list.h"
 
 typedef struct {
     int sockfd;
@@ -270,66 +274,111 @@ int parse_header_line(tcp_buffer_t *buffer, string_t *key, string_t *value) {
     }
 }
 
-bool_t parse_request(tcp_buffer_t *buffer, http_request_t *request) {
+/*
+ *  Returns:
+ *  - 0, when the request is parsed successfully
+ *  - 1, when the connection has closed
+ *  - 2, when there is a request parse error
+ */
+int parse_request(tcp_buffer_t *buffer, http_request_t *request) {
+    fprintf(stderr, "a\n");
     if (read_until(buffer, ' ', &request->method) <= 0) {
-        return false;
+        // TODO: fix this, this is a hack
+        return 1;
     }
 
+    fprintf(stderr, "b\n");
     if (read_until(buffer, ' ', &request->path) <= 0) {
-        return false;
+        return 2;
     }
 
+    fprintf(stderr, "c\n");
     if (read_until2(buffer, '\r', '\n', &request->http_version) <= 0) {
-        return false;
+        return 2;
     }
+
+    fprintf(stderr, "d\n");
+    list_init(http_header_entry_t, request->headers);
 
     while (true) {
+        fprintf(stderr, "e\n");
         string_t key = string_new();
         string_t value = string_new();
 
         int res = parse_header_line(buffer, &key, &value);
+        fprintf(stderr, "f\n");
         if (res == 0) {
-            // TODO: handle header
-            str_printf(str_cstr("Key: "), stdout);
-            str_print(key, stdout);
-            str_printf(str_char('\n'), stdout);
-
-            str_printf(str_cstr("Value: "), stdout);
-            str_print(value, stdout);
-            str_printf(str_char('\n'), stdout);
+            fprintf(stderr, "g\n");
+            http_header_entry_t entry;
+            entry.key = key;
+            entry.value = value;
+            list_insert(http_header_entry_t, request->headers, entry);
         } else if (res == 1) {
+            fprintf(stderr, "h\n");
+            str_free(key);
+            str_free(value);
             break;
         } else {
+            fprintf(stderr, "i\n");
+            str_free(key);
+            str_free(value);
             str_printf(str_cstr("Could not recognize header line\n"), stdout);
-            return false;
+            return 2;
         }
-
-        str_free(key);
-        str_free(value);
     }
 
-    return true;
+    fprintf(stderr, "g\n");
+    for (size_t i = 0; i < request->headers.length; i++) {
+        http_header_entry_t entry = list_get_unsafe(http_header_entry_t, request->headers, i);
+        str_printf(str_cstr("Key: "), stdout);
+        str_print(entry.key, stdout);
+        str_printf(str_char('\n'), stdout);
+
+        str_printf(str_cstr("Value: "), stdout);
+        str_print(entry.value, stdout);
+        str_printf(str_char('\n'), stdout);
+    }
+    fprintf(stderr, "h\n");
+
+    return 0;
 }
 
-#define sock_write(sockfd, string_literal) { char buf[] = string_literal; write(sockfd, buf, sizeof(buf)-1); }
+#define sock_write(sockfd, string_literal) { char buf[] = string_literal; if (write(sockfd, buf, sizeof(buf)-1) == -1) return false; }
 bool_t write_response(int sockfd, http_response_t *response) {
     // Header
     sock_write(sockfd, "HTTP/1.1 ");
-    str_writef(str_uint(response->status_code, 10), sockfd);
+    if (str_writef(str_uint(response->status_code, 10), sockfd) == -1) return false;
     sock_write(sockfd, " ");
-    str_writef(response->status_message, sockfd);
+    if (str_writef(response->status_message, sockfd) == -1) return false;
     sock_write(sockfd, "\r\n");
 
-    // Content-Length
-    str_writef(str_cstr("Content-Length: "), sockfd);
-    str_writef(str_uint(response->content_length, 10), sockfd);
-    str_writef(str_cstr("\r\n"), sockfd);
+    // Headers
+    {
+        // Content-Length
+        if (str_writef(str_cstr("Content-Length: "), sockfd) == -1) return false;
+        if (str_writef(str_uint(response->content_length, 10), sockfd) == -1) return false;
+        if (str_writef(str_cstr("\r\n"), sockfd) == -1) return false;
 
-    // End headers
-    str_writef(str_cstr("\r\n"), sockfd);
+        // Connection
+        if (str_writef(str_cstr("Connection: close\r\n"), sockfd) == -1) return false;
+
+        // Connection
+        if (str_writef(str_cstr("Server: MyServer/0.1\r\n"), sockfd) == -1) return false;
+
+        for (size_t i = 0; i < response->headers.length; i++) {
+            http_header_entry_t entry = list_get_unsafe(http_header_entry_t, response->headers, i);
+            if (str_write(entry.key, sockfd) == -1) return false;
+            if (str_writef(str_cstr(": "), sockfd) == -1) return false;
+            if (str_writef(entry.value, sockfd) == -1) return false;
+            if (str_writef(str_cstr("\r\n"), sockfd) == -1) return false;
+        }
+
+        // End headers
+        if (str_writef(str_cstr("\r\n"), sockfd) == -1) return false;
+    }
 
     // Content
-    write(sockfd, response->content, response->content_length);
+    if (write(sockfd, response->content, response->content_length) == -1) return false;
 
     return true;
 }
@@ -349,34 +398,48 @@ void handle_connection(connection_t *connection) {
         request.path = string_new();
         request.http_version = string_new();
 
-        if (!parse_request(&buffer, &request)) {
+        int request_parse_result = parse_request(&buffer, &request);
+        if (request_parse_result == 0) {
+            str_printf(str_cstr("Processing\n"), stderr);
+            list_init(http_header_entry_t, response.headers);
+
+            handle_request(&request, &response);
+
+            str_free(request.method);
+            str_free(request.path);
+            str_free(request.http_version);
+
+            if (!write_response(connection->sockfd, &response)) {
+                // TODO: handle error
+                str_printf(str_cstr("An error happened while writing the response\n"), stderr);
+                break;
+            }
+
+            list_free(http_header_entry_t, request.headers);
+
+            // uint8_t buf[] = "HTTP/1.1 200 Ok\r\nContent-Length: 14\r\nConnection: close\r\n\r\nHello, World!\n";
+            // write(connection->sockfd, buf, sizeof(buf)-1);
+        } else if (request_parse_result == 1) {
+            str_printf(str_cstr("Done\n"), stderr);
+            break;
+        } else if (request_parse_result == 2) {
             // TODO: Handle request parse error
             str_printf(str_cstr("An error happened while parsing the request\n"), stderr);
             uint8_t buf[] = "HTTP/1.1 400 Bad Request\r\nContent-Length: 16\r\nConnection: close\r\n\r\nCould not parse\n";
             write(connection->sockfd, buf, sizeof(buf)-1);
             break;
         }
-
-        handle_request(&request, &response);
-
-        str_free(request.method);
-        str_free(request.path);
-        str_free(request.http_version);
-
-        if (!write_response(connection->sockfd, &response)) {
-            // TODO: handle error
-            str_printf(str_cstr("An error happened while writing the response\n"), stderr);
-            break;
-        }
-
-        uint8_t buf[] = "HTTP/1.1 200 Ok\r\nContent-Length: 14\r\nConnection: close\r\n\r\nHello, World!\n";
-        write(connection->sockfd, buf, sizeof(buf)-1);
     }
 }
 
 void handle_request(http_request_t *request, http_response_t *response) {
     response->status_code = 200;
     response->status_message = str_cstr("Ok");
+
+    http_header_entry_t header;
+    header.key = str_cstr("X-Test");
+    header.value = str_cstr("Value!");
+    list_insert(http_header_entry_t, response->headers, header);
 
     char buf[] = "Hello from handle_request(...)\n";
     response->content = calloc(sizeof(buf)-1, sizeof(char));
