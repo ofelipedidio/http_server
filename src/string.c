@@ -179,16 +179,17 @@ void str_printf(string_t string, FILE *stream) {
 /*
  * Prints the {string} to {stream}
  */
-void str_write(string_t string, int fd) {
-    write(fd, string.text, string.length);
+ssize_t str_write(string_t string, int fd) {
+    return write(fd, string.text, string.length);
 }
 
 /*
  * Prints the {string} to {stream}
  */
-void str_writef(string_t string, int fd) {
-    str_write(string, fd);
+ssize_t str_writef(string_t string, int fd) {
+    ssize_t ret = str_write(string, fd);
     str_free(string);
+    return ret;
 }
 
 /*
