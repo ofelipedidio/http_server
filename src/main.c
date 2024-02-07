@@ -1,6 +1,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "../include/thread_pool.h"
@@ -8,11 +9,32 @@
 #include "../include/string.h"
 #include "../include/http.h"
 
+typedef list_definition(int) descriptor_list_t;
+
+descriptor_list_t descriptors;
+
+void close_connections(int val) {
+    fprintf(stderr, "Exiting...\n");
+    for (size_t i = 0; i < descriptors.length; i++) {
+        int fd = list_get_unsafe(descriptors, i);
+        close(fd);
+    }
+    list_free(descriptors);
+    exit(1);
+}
 
 void sigint_handler(int val) {
-    // TODO: close listening socket
-    fprintf(stderr, "signal val = %d\n", val);
+    fprintf(stderr, "Waiting for threads...\n");
+    signal(SIGINT, close_connections);
+
     close_thread_pool();
+
+    for (size_t i = 0; i < descriptors.length; i++) {
+        int fd = list_get_unsafe(descriptors, i);
+        close(fd);
+    }
+    list_free(descriptors);
+
     exit(1);
 }
 
@@ -22,6 +44,8 @@ void *start_http_server(uint16_t port) {
     socklen_t client_length;
     struct sockaddr_in client_address;
     connection_t connection;
+
+    list_insert(int, descriptors, listen_sockfd);
 
     if (!start_server(port, 15, &listen_sockfd)) {
         fprintf(stderr, "ERROR: Could not listen on port %d", port);
@@ -39,10 +63,11 @@ void *start_http_server(uint16_t port) {
             // Accept connecting clients and break on 
             connection_sockfd = accept(listen_sockfd, (struct sockaddr *) &client_address, &client_length);
             if (connection_sockfd != -1) {
+                list_insert(int, descriptors, connection_sockfd);
+
                 connection.server_port = port;
                 connection.client = client_address;
                 connection.sockfd = connection_sockfd;
-
                 allocate_to_thread((thread_input_t) { .connection = connection, });
             } else {
                 perror("ERROR: [HTTP] Call to 'accept' failed");
@@ -96,7 +121,24 @@ void handle_input(size_t thread_number, thread_input_t input) {
     handle_connection(&input.connection);
 }
 
+void handle_request(http_request_t *request, http_response_t *response) {
+    response->status_code = 200;
+    response->status_message = str_cstr("Ok");
+
+    http_header_entry_t header;
+    header.key = str_cstr("X-Test");
+    header.value = str_cstr("Value!");
+    list_insert(http_header_entry_t, response->headers, header);
+
+    char buf[] = "Hello from handle_request(...)\n";
+    response->content = calloc(sizeof(buf)-1, sizeof(char));
+    memcpy(response->content, buf, sizeof(buf)-1);
+    response->content_length = sizeof(buf)-1;
+}
+
 int main(int argc, char **argv) {
+    list_init(int, descriptors);
+
     uint16_t port = 8080;
     if (argc >= 2) {
         port = (uint16_t) atoi(argv[1]);
@@ -109,7 +151,11 @@ int main(int argc, char **argv) {
         close_thread_pool();
     }
 
-    // parse_header();
+    for (size_t i = 0; i < descriptors.length; i++) {
+        int fd = list_get_unsafe(descriptors, i);
+        close(fd);
+    }
+    list_free(descriptors);
 
     return 0;
 }

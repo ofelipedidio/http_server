@@ -431,18 +431,3 @@ void handle_connection(connection_t *connection) {
         }
     }
 }
-
-void handle_request(http_request_t *request, http_response_t *response) {
-    response->status_code = 200;
-    response->status_message = str_cstr("Ok");
-
-    http_header_entry_t header;
-    header.key = str_cstr("X-Test");
-    header.value = str_cstr("Value!");
-    list_insert(http_header_entry_t, response->headers, header);
-
-    char buf[] = "Hello from handle_request(...)\n";
-    response->content = calloc(sizeof(buf)-1, sizeof(char));
-    memcpy(response->content, buf, sizeof(buf)-1);
-    response->content_length = sizeof(buf)-1;
-}
