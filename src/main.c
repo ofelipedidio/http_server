@@ -21,7 +21,7 @@ void *start_http_server() {
     int connection_sockfd;
     socklen_t client_length;
     struct sockaddr_in client_address;
-    uint16_t port = 8081;
+    uint16_t port = 8080;
     connection_t connection;
 
     if (!start_server(port, 15, &listen_sockfd)) {
@@ -94,7 +94,7 @@ void print_char(FILE *stream, char c) {
 
 void handle_input(size_t thread_number, thread_input_t input) {
     fprintf(stderr, "Received request from %hu\n", ntohs(input.connection.client.sin_port));
-    handle_connection(input);
+    handle_connection(&input.connection);
 }
 
 int main(int argc, char **argv) {
