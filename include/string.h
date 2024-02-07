@@ -1,3 +1,6 @@
+#ifndef STRING
+#define STRING
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -61,6 +64,18 @@ void str_print(string_t string, FILE *stream);
 void str_printf(string_t string, FILE *stream);
 
 /*
+ * Prints the {string} to {stream}
+ */
+void str_write(string_t string, int fd);
+
+/*
+ * Prints the {string} to {stream}
+ */
+void str_writef(string_t string, int fd);
+
+/*
  * Frees the allocated memory from a string_t
  */
 void str_free(string_t string);
+
+#endif

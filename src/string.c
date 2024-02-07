@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 char digits[] = {
     '0',
@@ -172,6 +173,21 @@ void str_print(string_t string, FILE *stream) {
  */
 void str_printf(string_t string, FILE *stream) {
     str_print(string, stream);
+    str_free(string);
+}
+
+/*
+ * Prints the {string} to {stream}
+ */
+void str_write(string_t string, int fd) {
+    write(fd, string.text, string.length);
+}
+
+/*
+ * Prints the {string} to {stream}
+ */
+void str_writef(string_t string, int fd) {
+    str_write(string, fd);
     str_free(string);
 }
 
