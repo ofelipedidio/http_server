@@ -329,7 +329,7 @@ int parse_request(tcp_buffer_t *buffer, http_request_t *request) {
 
     fprintf(stderr, "g\n");
     for (size_t i = 0; i < request->headers.length; i++) {
-        http_header_entry_t entry = list_get_unsafe(http_header_entry_t, request->headers, i);
+        http_header_entry_t entry = list_get_unsafe(request->headers, i);
         str_printf(str_cstr("Key: "), stdout);
         str_print(entry.key, stdout);
         str_printf(str_char('\n'), stdout);
@@ -366,7 +366,7 @@ bool_t write_response(int sockfd, http_response_t *response) {
         if (str_writef(str_cstr("Server: MyServer/0.1\r\n"), sockfd) == -1) return false;
 
         for (size_t i = 0; i < response->headers.length; i++) {
-            http_header_entry_t entry = list_get_unsafe(http_header_entry_t, response->headers, i);
+            http_header_entry_t entry = list_get_unsafe(response->headers, i);
             if (str_write(entry.key, sockfd) == -1) return false;
             if (str_writef(str_cstr(": "), sockfd) == -1) return false;
             if (str_writef(entry.value, sockfd) == -1) return false;
@@ -415,7 +415,7 @@ void handle_connection(connection_t *connection) {
                 break;
             }
 
-            list_free(http_header_entry_t, request.headers);
+            list_free(request.headers);
 
             // uint8_t buf[] = "HTTP/1.1 200 Ok\r\nContent-Length: 14\r\nConnection: close\r\n\r\nHello, World!\n";
             // write(connection->sockfd, buf, sizeof(buf)-1);
